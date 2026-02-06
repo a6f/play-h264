@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>Online h264 player using jMuxer</title>
+<style type="text/css">
+.url-input {
+    padding: 20px 10px;
+    background: #f7f7f7;
+    border: 1px solid #9a9a9a;
+    margin-bottom: 10px;
+}
+#play-btn {
+    background: #3498db;
+    color: #fff;
+    padding: 7px;
+    width: 100%;
+    border: 1px solid #0880d0;
+    font-size: 15px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    cursor: pointer;
+}
+#play-btn:hover {
+   background: #05568c;
+}
+</style>
+<script type="text/javascript" src="jmuxer.min.js"></script>
+</head>
+<body>
+<h1>Online h264 player</h1>
+<div id="container" style="width: 600px; margin: 0 auto;">
+    <div class="url-input">
+        <label for="url">H.264 stream URL</label>
+        <input type="text" id="url" name="url" value="jellyfish.h264" />
+    </div>
+    <button id="play-btn">Play</button>
+    <video width="100%" autoplay muted id="player"></video>
+</div>
+
+<script>
+function onReady() { console.log("onReady"); }
+function onError() { console.log("onError"); }
+function onUnsupportedCodec() { console.log("onUnsupportedCodec"); }
+function onMissingVideoFrames() { console.log("onMissingVideoFrames"); }
+function onMissingAudioFrames() { console.log("onMissingAudioFrames"); }
+function onKeyfarmePosition() { console.log("onKeyfarmePosition"); }
+
+async function stream_to_muxer(url, jmuxer) {
+    const response = await fetch(url);
+    for await (const chunk of response.body) {
+      let len = chunk.length;
+      console.log(`got ${len} bytes`);
+        jmuxer.feed({
+            video: chunk,
+            // duration: len * 1000 / 4 / 209240,
+            // XXX
+            // FYI, jMuxer considers each chunk/packet (i.e. data that you feed each time) as a complete buffer of the frame(s). If you feed buffer with partial frames, it may cause [stuttering]
+            // from https://github.com/webstream-labs/jmuxer/issues/35
+            // does that mean we need framing?
+        });
+    };
+}
+
+ window.onload = function() {
+    var jmuxer;
+    document.getElementById('play-btn').addEventListener('click', function(e) {
+        if (jmuxer) {
+            jmuxer.destroy();
+        }
+        let url = document.getElementById('url').value;
+        // let fps = parseInt(document.getElementById('fps-input').value) || 30;
+        // let duration = parseInt(document.getElementById('duration-input').value) * 1000;
+        jmuxer = new JMuxer({
+            node: 'player',
+            mode: 'video',
+            // maxDelay: 5000,  // don't seek the player forward
+            // flushingTime: 0,  // relay video immediately
+            // readFpsFromTrack: true,
+            // fps: 30,  // default value
+            // debug: true,
+            onReady: onReady,
+            onError: onError,
+            onUnsupportedCodec: onUnsupportedCodec,
+            onMissingVideoFrames: onMissingVideoFrames,
+            onMissingAudioFrames: onMissingAudioFrames,
+            onKeyfarmePosition: onKeyfarmePosition,
+        });
+        stream_to_muxer(url, jmuxer);
+    }, false);
+ }
+</script>
+</body>
+</html>
